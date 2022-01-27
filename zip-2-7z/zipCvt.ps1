@@ -28,7 +28,7 @@ process {
     $zf = Get-Item $ZipFile
     $tdir = Join-Path $env:TEMP "zipout"
     if (Test-Path $tdir) {
-       remove-item -recurse $tdir
+       remove-item -force -recurse $tdir
     }
     mkdir $tdir
 
