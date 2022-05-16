@@ -134,20 +134,16 @@ main(int argc, char *argv[])
   int month_idx = 1;
 
   /* First, handle command-line args and validate */
-  switch(argc) {
-  case 0: case 1: break;
-  case 2: sscanf(argv[1],"%d",&month_idx); break;
-  case 3: sscanf(argv[1],"%d",&year); sscanf(argv[2],"%d",&month_idx); break;
-  }
+  if(argc > 1) sscanf(argv[1],"%d",&month_idx); 
+  if(argc > 2) sscanf(argv[2],"%d",&year);
 
   --month_idx;
   if (month_idx < 0 || month_idx > 12 || year > 9999 || year < 0 ||
 		  (month_idx == 12 && year == 9999) || argc > 3)
     {
-      fprintf(stderr,"Usage: %s [month]\n", argc > 0 ? argv[0] : "snoopy-cal");
-      fprintf(stderr,"   or: %s year month\n", argc > 0 ? argv[0] : "snoopy-cal");
-      fprintf(stderr,"  year can be 0 to 9999\n");
+      fprintf(stderr,"Usage: %s [month] [year]\n", argc > 0 ? argv[0] : "snoopy-cal");
       fprintf(stderr,"  month can be 1 to 13 (13 is Jan of following year)\n");
+      fprintf(stderr,"  year can be 0 to 9999\n");
       return -1;
     }
 
