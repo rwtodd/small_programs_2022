@@ -72,11 +72,28 @@ draw_day_grid(int tot_days, int idx)
             else { digits[column*2] = (char)(idx/10); digits[column*2+1] = (char)(idx%10); }
           }
          
+#define BAR printf("   I ")
+#define SPC putchar(' ') 
+#define DIGIT(col) if (digits[col] == -1) printf("      "); else draw_digit_fragment(digits[col], row); 
+	/* if this isn't the first line, draw the dividers */
+	if (idx > 8)
+	{
+          puts(" --------------------I-----------------I-----------------I-----------------I-----------------I-----------------I--------------------");
+	}
         /* draw the digits */
-        for(int row = 0; row < 7; ++row)
+        puts("                     I                 I                 I                 I                 I                 I                    ");
+        for(int row = 0; row < 5; ++row)
           {
-              /* TODO! */
+	     printf("     ");
+             DIGIT(0); SPC; DIGIT(1); BAR; 
+             DIGIT(2); SPC; DIGIT(3); BAR; 
+             DIGIT(4); SPC; DIGIT(5); BAR; 
+             DIGIT(6); SPC; DIGIT(7); BAR; 
+             DIGIT(8); SPC; DIGIT(9); BAR; 
+             DIGIT(10); SPC; DIGIT(11); BAR; 
+             DIGIT(12); SPC; DIGIT(13); putchar('\n'); 
           }
+        puts("                     I                 I                 I                 I                 I                 I                    ");
      }
 }
 
