@@ -1,169 +1,188 @@
-/* http://gunkies.org/wiki/Snoopy_Calendar#snpcal.dat */
 #include<stdio.h>
 #include<time.h>
 #include<assert.h>
 
-#include "picdata.inc"
-#include "worddata.inc"
+#include "picdat.inc"
+#include "extdat.inc"
 
+
+/* draw an RLE-encoded picture from picdat.inc */
 #define LLEN 133
-
-static void 
-draw_digit_fragment(int digit, int line)
+static void
+draw_rle_pic (const char *restrict pic)
 {
-  assert (line >= 0 && line < 7);
-  assert (digit >= 0 && digit < 10);
-
-  size_t len = 6;
-  const char *restrict ch = numerals[line] + (digit * len); 
-  while(len--) putchar(*ch++);
+  signed char count, chr;
+  int len = 0;
+  while (count = *pic++, chr = *pic++, count != -2)
+    {
+      len += count;
+      if (count == -1)
+        count = LLEN - len, len = 0;
+      while (count--)
+        putchar (chr);
+      if (!len)
+        putchar ('\n');
+    }
+  putchar ('\n');
 }
 
+/* draw one row of a digit, or blanks if the digit is -1 */
 static void
-draw_month_banner(int year, int month_idx)
+draw_digit_fragment (int digit, int row)
+{
+  const static char blanks[6] = "      ";
+  assert (row >= 0 && row < 5);
+  assert (digit >= -1 && digit < 10);
+
+  size_t len = 6;
+  const char *ch = (digit >= 0) ? numerals[row] + (digit * len) : blanks;
+  while (len--)
+    putchar (*ch++);
+}
+
+/* banners have the month-name from extdat.inc, and the digits of the
+ * year written on either side
+ */
+static void
+draw_month_banner (int year, int month_idx)
 {
   assert (year >= 0 && year <= 9999);
   assert (month_idx >= 0 && month_idx < 12);
 
-  int digit_4 = year % 10; year /= 10;
-  int digit_3 = year % 10; year /= 10;
-  int digit_2 = year % 10; year /= 10;
-  int digit_1 = year % 10; year /= 10;
+  int digit_4 = year % 10;
+  year /= 10;
+  int digit_3 = year % 10;
+  year /= 10;
+  int digit_2 = year % 10;
+  year /= 10;
+  int digit_1 = year % 10;
+  year /= 10;
 
   month_idx *= 7;
   /* We'll define some shorthand here to make the layout easier */
-  #define BL(n) printf("%" #n "c", ' ');
-  #define NL putchar('\n')
-  #define DIGIT(d,l) draw_digit_fragment(digit_ ## d, l);
-  #define MONTH    BL(12) printf("%s",months[month_idx++]); BL(19)
-  BL(12)                MONTH    NL;
-  BL(6)      DIGIT(2,0) MONTH    DIGIT(3,0) NL;
-  BL(6)      DIGIT(2,1) MONTH    DIGIT(3,1) NL;
-  DIGIT(1,0) DIGIT(2,2) MONTH    DIGIT(3,2) DIGIT(4,0) NL;
-  DIGIT(1,1) DIGIT(2,3) MONTH    DIGIT(3,3) DIGIT(4,1) NL;
-  DIGIT(1,2) DIGIT(2,4) MONTH    DIGIT(3,4) DIGIT(4,2) NL;
-  DIGIT(1,3) BL(6)      MONTH    BL(6)      DIGIT(4,3) NL;
-  DIGIT(1,4) BL(121)                        DIGIT(4,4) NL;
-  #undef BL
-  #undef NL 
-  #undef DIGIT
-  #undef MONTH
+#define BL(n) printf("%" #n "c", ' ');
+#define NL putchar('\n')
+#define DIGIT(d,l) draw_digit_fragment(digit_ ## d, l);
+#define MONTH    BL(12) fputs(months[month_idx++], stdout); BL(19)
+  BL (12) MONTH NL;
+  BL (6) DIGIT (2, 0) MONTH DIGIT (3, 0) NL;
+  BL (6) DIGIT (2, 1) MONTH DIGIT (3, 1) NL;
+  DIGIT (1, 0) DIGIT (2, 2) MONTH DIGIT (3, 2) DIGIT (4, 0) NL;
+  DIGIT (1, 1) DIGIT (2, 3) MONTH DIGIT (3, 3) DIGIT (4, 1) NL;
+  DIGIT (1, 2) DIGIT (2, 4) MONTH DIGIT (3, 4) DIGIT (4, 2) NL;
+  DIGIT (1, 3) BL (6) MONTH BL (6) DIGIT (4, 3) NL;
+  DIGIT (1, 4) BL (121) DIGIT (4, 4) NL;
 }
+#undef BL
+#undef NL
+#undef DIGIT
+#undef MONTH
 
-/* draw a month with `tot_days` days, that starts on day `idx` */
-void
-draw_day_grid(int tot_days, int idx)
+/* draw a grid of days for a month month with `tot_days` days, 
+ * that starts on day `idx`
+ */
+static void
+draw_day_grid (int tot_days, int idx)
 {
-   assert(tot_days >= 28 && tot_days <= 31);
-   assert(idx >= 0 && idx <= 6);
+  /* define some constants and macros to make formatting easier */
+  static const char bar_txt[] = "   I ";
+  static const char blank_bars[] =
+    "                     I                 I                 I                 I                 I                 I                    ";
+  static const char divider_bars[] =
+    " --------------------I-----------------I-----------------I-----------------I-----------------I-----------------I--------------------";
+#define BAR fputs(bar_txt,stdout);
+#define SPC putchar(' ');
+#define DIGIT(col) draw_digit_fragment(digits[col], row);
 
-   static const char blank[1] = "";
-   putchar('\n'); puts(weekdays); putchar('\n');
+  assert (tot_days >= 28 && tot_days <= 31);
+  assert (idx >= 0 && idx <= 6);
 
-   idx = -idx + 1;
-   signed char digits[14];
-   while(idx <= tot_days)
-     {
-        /* fill out digits[] with a row of 14 potential digits to draw */
-        for(int column = 0; column < 7; ++column, ++idx)
-          {
-            if(idx <= 0 || idx > tot_days) { digits[column*2] = -1; digits[column*2+1] = -1; }
-            else if(idx < 10) { digits[column*2] = -1; digits[column*2+1] = (char)idx; }
-            else { digits[column*2] = (char)(idx/10); digits[column*2+1] = (char)(idx%10); }
-          }
-         
-#define BAR printf("   I ")
-#define SPC putchar(' ') 
-#define DIGIT(col) if (digits[col] == -1) printf("      "); else draw_digit_fragment(digits[col], row); 
-	/* if this isn't the first line, draw the dividers */
-	if (idx > 8)
-	{
-          puts(" --------------------I-----------------I-----------------I-----------------I-----------------I-----------------I--------------------");
-	}
-        /* draw the digits */
-        puts("                     I                 I                 I                 I                 I                 I                    ");
-        for(int row = 0; row < 5; ++row)
-          {
-	     printf("     ");
-             DIGIT(0); SPC; DIGIT(1); BAR; 
-             DIGIT(2); SPC; DIGIT(3); BAR; 
-             DIGIT(4); SPC; DIGIT(5); BAR; 
-             DIGIT(6); SPC; DIGIT(7); BAR; 
-             DIGIT(8); SPC; DIGIT(9); BAR; 
-             DIGIT(10); SPC; DIGIT(11); BAR; 
-             DIGIT(12); SPC; DIGIT(13); putchar('\n'); 
-          }
-        puts("                     I                 I                 I                 I                 I                 I                    ");
-     }
-}
+  static const char blank[1] = "";
+  putchar ('\n');
+  puts (weekdays);
+  putchar ('\n');
 
-/*
-         SUNDAY            MONDAY            TUESDAY          WEDNESDAY         THURSDAY           FRIDAY           SATURDAY        
-                                                                                                                                    
-                     I                 I                 I                 I                 I                 I                    
-                     I                 I                 I                 I                 I           1     I          222       
-                     I                 I                 I                 I                 I          11     I         2   2      
-                     I                 I                 I                 I                 I           1     I            2       
-                     I                 I                 I                 I                 I           1     I          2         
-                     I                 I                 I                 I                 I         11111   I         22222      
-                     I                 I                 I                 I                 I                 I                    
- --------------------I-----------------I-----------------I-----------------I-----------------I-----------------I--------------------
-                     I                 I                 I                 I                 I                 I                    
-             33333   I            4    I         55555   I          666    I         77777   I          888    I          999       
-                 3   I           44    I         5       I         6       I             7   I         8   8   I         9   9      
-               33    I          4 4    I         5555    I         6666    I            7    I          888    I          9999      
-             3   3   I         44444   I             5   I         6   6   I           7     I         8   8   I             9      
-              333    I            4    I         5555    I          666    I           7     I          888    I          999       
-                     I                 I                 I                 I                 I                 I                    
- --------------------I-----------------I-----------------I-----------------I-----------------I-----------------I--------------------
-                     I                 I                 I                 I                 I                 I                    
-        1     000    I    1      1     I    1     222    I    1    33333   I    1       4    I    1    55555   I    1     666       
-       11    0   0   I   11     11     I   11    2   2   I   11        3   I   11      44    I   11    5       I   11    6          
-        1    0   0   I    1      1     I    1       2    I    1      33    I    1     4 4    I    1    5555    I    1    6666       
-        1    0   0   I    1      1     I    1     2      I    1    3   3   I    1    44444   I    1        5   I    1    6   6      
-      11111   000    I  11111  11111   I  11111  22222   I  11111   333    I  11111     4    I  11111  5555    I  11111   666       
-                     I                 I                 I                 I                 I                 I                    
- --------------------I-----------------I-----------------I-----------------I-----------------I-----------------I--------------------
-                     I
-*/
-
-int 
-main(int argc, char *argv[])
-{
-  int year = 1969;
-  int month_idx = 1;
-
-  /* First, handle command-line args and validate */
-  if(argc > 1) sscanf(argv[1],"%d",&month_idx); 
-  if(argc > 2) sscanf(argv[2],"%d",&year);
-
-  --month_idx;
-  if (month_idx < 0 || month_idx > 12 || year > 9999 || year < 0 ||
-		  (month_idx == 12 && year == 9999) || argc > 3)
+  idx = -idx + 1;
+  signed char digits[14];
+  while (idx <= tot_days)
     {
-      fprintf(stderr,"Usage: %s [month] [year]\n", argc > 0 ? argv[0] : "snoopy-cal");
-      fprintf(stderr,"  month can be 1 to 13 (13 is Jan of following year)\n");
-      fprintf(stderr,"  year can be 0 to 9999\n");
+      /* fill out digits[] with a row of 14 potential digits to draw */
+      for (int column = 0; column < 7; ++column, ++idx)
+        if (idx <= 0 || idx > tot_days)
+            digits[column * 2] = digits[column * 2 + 1] = -1;
+        else if (idx < 10)
+            digits[column * 2] = -1, digits[column * 2 + 1] = (char) idx;
+        else
+            digits[column * 2] = (char) (idx / 10), digits[column * 2 + 1] = (char) (idx % 10);
+
+      /* if this isn't the first line, draw the dividers */
+      if (idx > 8) puts (divider_bars);
+
+      /* draw the digits */
+      puts (blank_bars);
+      for (int row = 0; row < 5; ++row)
+        {
+          fputs ("     ", stdout);
+          DIGIT (0)  SPC DIGIT (1)  BAR
+          DIGIT (2)  SPC DIGIT (3)  BAR
+          DIGIT (4)  SPC DIGIT (5)  BAR
+          DIGIT (6)  SPC DIGIT (7)  BAR
+          DIGIT (8)  SPC DIGIT (9)  BAR
+          DIGIT (10) SPC DIGIT (11) BAR
+          DIGIT (12) SPC DIGIT (13) putchar ('\n');
+        }
+      puts (blank_bars);
+    }
+}
+#undef BAR
+#undef SPC
+#undef DIGIT
+
+int
+main (int argc, char *argv[])
+{
+  time_t today = time (NULL);
+  struct tm selected = *localtime (&today);
+  selected.tm_mday = 1;         /* we only care about the 1st of the month */
+
+  /* handle cmdline args to reset the month or month+year */
+  if (argc > 1)
+    if (sscanf (argv[1], "%d", &selected.tm_mon))
+      --selected.tm_mon;
+    else
+      goto usage;
+
+  if (argc > 2)
+    if (sscanf (argv[2], "%d", &selected.tm_year))
+      selected.tm_year -= 1900;
+    else
+      goto usage;
+
+  /* now validate the configuration further */
+  if (selected.tm_mon < 0 || selected.tm_mon > 12 || selected.tm_year > 9999
+      || selected.tm_year < 0 || (selected.tm_mon == 12
+                                  && selected.tm_year == 9999) || argc > 3)
+    {
+    usage:
+      fprintf (stderr, "Usage: %s [month] [year]\n",
+               argc > 0 ? argv[0] : "snoopy-cal");
+      fprintf (stderr,
+               "  month can be 1 to 13 (13 is Jan of following year)\n");
+      fprintf (stderr, "  year can be 0 to 9999\n");
       return -1;
     }
 
   /* draw the picture for the chosen month */
-  const char *cur = pics[month_idx];
-  signed char count, chr;
-  int len = 0;
-  while(count = *cur++, chr = *cur++, count != -2) {
-    len += count;
-    if(count == -1) count = LLEN - len, len = 0;
-    while(count--) putchar(chr);
-    if(!len) putchar('\n');
-  }
-  putchar('\n');
+  draw_rle_pic (pics[selected.tm_mon]);
 
-  /* Now draw the calendar.  If the month_idx was 12, we actually want
-   * January of the following year.  So fix that up first.
+  /* Now draw the calendar.  mktime() takes care of wrap-around to the following
+   * year if the user selected month '13'.
    */
-  if (month_idx == 12) month_idx = 0, ++year;
-  draw_month_banner(year, month_idx);
-  draw_day_grid(31,6);
+  mktime (&selected);
+  draw_month_banner (selected.tm_year + 1900, selected.tm_mon);
+  /* account for leap-years */
+  int leap_day = selected.tm_mon == 1 && !(selected.tm_year % 4)
+    && selected.tm_year % 100;
+  draw_day_grid (days_in_month[selected.tm_mon] + leap_day, selected.tm_wday);
   return 0;
 }

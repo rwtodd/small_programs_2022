@@ -1,5 +1,5 @@
 .PHONY: clean
-snoopy-cal: cal.c picdata.inc worddata.inc
+snoopy-cal: cal.c picdat.inc extdat.inc
 	$(CC) -O3 -march=native -o $@ cal.c
 
 clean:
