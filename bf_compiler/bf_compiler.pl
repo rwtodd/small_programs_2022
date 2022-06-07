@@ -41,12 +41,23 @@ opt_3([],[]).
 opt_3([set(N),add(N2)|Cs],[set(Tot)|Xs]) :- Tot is N+N2, opt_3(Cs,Xs).
 opt_3([X|Cs],[X|Xs]) :- opt_3(Cs,Xs).
 
+% optimization pass 4 -- while { move(N) add(A) move(-N) add(-1)  } wend
+%    ==   add( ptr * A ) to loc N...
+opt_4([],[]).
+opt_4([while,move(N),add(A),move(N2),add(-1),wend|Cs],[addMultipleAtOffs(N,A),set(0)|Opts]) :-
+  N2 is -N, !, opt_4(Cs,Opts).
+opt_4([while,add(-1),move(N),add(A),move(N2),wend|Cs],[addMultipleAtOffs(N,A),set(0)|Opts]) :-
+  N2 is -N, !, opt_4(Cs,Opts).
+opt_4([X|Cs],[X|Xs]) :- opt_4(Cs,Xs).
 
 compile(Program, Compiled) :- opt_1(Program,Compiled1),
   opt_2(Compiled1,Compiled2),
-  opt_3(Compiled2,Compiled).
+  opt_3(Compiled2,Compiled3),
+  opt_4(Compiled3,Compiled4),
+  Compiled=Compiled4.
 
 % format the code...
+translate(addMultipleAtOffs(N,A),F) :- format_to_atom(F,'  *(ptr + ~d) += (~d * *ptr);\n',[N,A]).
 translate(move(N),F) :- format_to_atom(F,'  ptr += ~d;\n',[N]).
 translate(add(N),F) :- format_to_atom(F,'  *ptr += ~d;\n',[N]).
 translate(set(N), F) :- format_to_atom(F,'  *ptr = ~d;\n',[N]).
