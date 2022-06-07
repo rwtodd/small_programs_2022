@@ -1,3 +1,5 @@
+:- initialization(main).
+
 % define the bf language primitives
 bf_cmd('>',right). bf_cmd('<',left).
 bf_cmd('+',incr). bf_cmd('-',decr).
@@ -44,7 +46,10 @@ format_code([]).
 format_code([C|Cs]) :- translate(C,OStr), print(OStr), !, format_code(Cs).
 
 % a `main` predicate to get things moving...
-main(FName) :- print_frontmatter, file_contents(FName, Program), !,
+run_file(FName) :- print_frontmatter, file_contents(FName, Program), !,
   compile(Program,Code), format_code(Code), print_endmatter.
+
+main :- argument_counter(2), argument_value(1,FName), run_file(FName).
+main :- print('Usage: bf_compiler <code.bf>\n').
 
 % vim: filetype=prolog
