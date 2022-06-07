@@ -1,8 +1,8 @@
 :- initialization(main).
 
 % define the bf language primitives
-bf_cmd('>',right). bf_cmd('<',left).
-bf_cmd('+',incr). bf_cmd('-',decr).
+bf_cmd('>',move(1)). bf_cmd('<',move(-1)).
+bf_cmd('+',add(1)). bf_cmd('-',add(-1)).
 bf_cmd('.',putch). bf_cmd(',',getch).
 bf_cmd('[',while). bf_cmd(']',wend).
 
@@ -22,29 +22,34 @@ file_contents(FName, Contents) :- open(FName, read, IS), read_chars(IS, Contents
 
 % compiler is here
 
-% optimization pass 1 -- collect runs of commands...
-collectible(C) :- member(C,[right,left, incr, decr]).
-opt_1(X,none,[],[X]).
-opt_1(X,N,[],[Constructed]) :- Constructed =.. [X,N].
-opt_1(X,none,[C|Cs], [X|Xs]) :- collectible(C) -> opt_1(C,1,Cs,Xs) ; opt_1(C,none,Cs,Xs).
-opt_1(C,N,[C|Cs], Result) :- N1 is N + 1, opt_1(C,N1,Cs,Result).
-opt_1(X,N,[C|Cs], [Constructed|Xs]) :- Constructed =.. [X,N],
-  (collectible(C) -> opt_1(C,1,Cs,Xs) ; opt_1(C,none,Cs,Xs) ).
+% optimization pass 1 -- collect runs of add() and move() cmds
+% opt_1(Codes,Optimized)
+opt_1([],[]).
+opt_1([move(N1),move(N2)|Cs],Opts) :- N3 is N1+N2, opt_1([move(N3)|Cs],Opts).
+opt_1([add(N1),add(N2)|Cs],Opts) :- N3 is N1+N2, opt_1([add(N3)|Cs],Opts).
+opt_1([C|Cs],[C|Opts]) :- opt_1(Cs,Opts).
 
 % optimization pass 2 -- [-] == zero the current cell.
+% opt_2(Codes,Optimized)
 opt_2([],[]).
-opt_2([while,decr(_),wend|Cs],[zero|Xs]) :- opt_2(Cs,Xs).
+opt_2([while,add(N),wend|Cs],[set(0)|Xs]) :- N < 0, opt_2(Cs,Xs).
 opt_2([X|Cs],[X|Xs]) :- opt_2(Cs,Xs).
 
-compile(Program, Compiled) :- opt_1(nop,none,Program,Compiled1),
-  opt_2(Compiled1,Compiled).
+% optimization pass 3 -- set(N)add(N2) == set(N+N2)
+% opt_3(Codes,Optimized)
+opt_3([],[]).
+opt_3([set(N),add(N2)|Cs],[set(Tot)|Xs]) :- Tot is N+N2, opt_3(Cs,Xs).
+opt_3([X|Cs],[X|Xs]) :- opt_3(Cs,Xs).
+
+
+compile(Program, Compiled) :- opt_1(Program,Compiled1),
+  opt_2(Compiled1,Compiled2),
+  opt_3(Compiled2,Compiled).
 
 % format the code...
-translate(right(N),F) :- format_to_atom(F,'  ptr += ~d;\n',[N]).
-translate(left(N),F) :- format_to_atom(F,'  ptr -= ~d;\n',[N]).
-translate(incr(N),F) :- format_to_atom(F,'  *ptr += ~d;\n',[N]).
-translate(decr(N),F) :- format_to_atom(F,'  *ptr -= ~d;\n',[N]).
-translate(zero,'  *ptr = 0;\n').
+translate(move(N),F) :- format_to_atom(F,'  ptr += ~d;\n',[N]).
+translate(add(N),F) :- format_to_atom(F,'  *ptr += ~d;\n',[N]).
+translate(set(N), F) :- format_to_atom(F,'  *ptr = ~d;\n',[N]).
 translate(putch,'  putchar(*ptr);\n'). translate(getch,'  *ptr = getchar();\n').
 translate(while,'  while(*ptr) {\n').  translate(wend,'  }\n').
 translate(nop,'').
