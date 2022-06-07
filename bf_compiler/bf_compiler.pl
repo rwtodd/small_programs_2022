@@ -18,16 +18,33 @@ read_chars(IS, CHS) :- get_char(IS, Code),
         ; read_chars(IS,CHS) ) ).
 file_contents(FName, Contents) :- open(FName, read, IS), read_chars(IS, Contents), close(IS).
 
-% the base compiler is here
-translate(right,'  ++ptr;\n').         translate(left,'  --ptr;\n').
-translate(incr,'  ++*ptr;\n').         translate(decr,'  --*ptr;\n'). 
+% compiler is here
+
+% optimization pass 1 -- collect runs of commands...
+collectible(C) :- member(C,[right,left, incr, decr]).
+opt_1(X,none,[],[X]).
+opt_1(X,N,[],[Constructed]) :- Constructed =.. [X,N].
+opt_1(X,none,[C|Cs], [X|Xs]) :- collectible(C) -> opt_1(C,1,Cs,Xs) ; opt_1(C,none,Cs,Xs).
+opt_1(C,N,[C|Cs], Result) :- N1 is N + 1, opt_1(C,N1,Cs,Result).
+opt_1(X,N,[C|Cs], [Constructed|Xs]) :- Constructed =.. [X,N],
+  (collectible(C) -> opt_1(C,1,Cs,Xs) ; opt_1(C,none,Cs,Xs) ).
+
+compile(Program, Compiled) :- opt_1(nop,none,Program,Compiled).
+
+% format the code...
+translate(right(N),F) :- format_to_atom(F,'  ptr += ~d;\n',[N]).
+translate(left(N),F) :- format_to_atom(F,'  ptr -= ~d;\n',[N]).
+translate(incr(N),F) :- format_to_atom(F,'  *ptr += ~d;\n',[N]).
+translate(decr(N),F) :- format_to_atom(F,'  *ptr -= ~d;\n',[N]).
 translate(putch,'  putchar(*ptr);\n'). translate(getch,'  *ptr = getchar();\n').
 translate(while,'  while(*ptr) {\n').  translate(wend,'  }\n').
+translate(nop,'').
 
-compile([]).
-compile([Prim|Ps]) :- translate(Prim,Code), print(Code), !, compile(Ps).
+format_code([]).
+format_code([C|Cs]) :- translate(C,OStr), print(OStr), !, format_code(Cs).
 
 % a `main` predicate to get things moving...
-main(FName) :- print_frontmatter, file_contents(FName, Program), !, compile(Program), print_endmatter.
+main(FName) :- print_frontmatter, file_contents(FName, Program), !,
+  compile(Program,Code), format_code(Code), print_endmatter.
 
 % vim: filetype=prolog
