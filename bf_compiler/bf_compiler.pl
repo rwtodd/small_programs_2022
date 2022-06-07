@@ -31,13 +31,20 @@ opt_1(C,N,[C|Cs], Result) :- N1 is N + 1, opt_1(C,N1,Cs,Result).
 opt_1(X,N,[C|Cs], [Constructed|Xs]) :- Constructed =.. [X,N],
   (collectible(C) -> opt_1(C,1,Cs,Xs) ; opt_1(C,none,Cs,Xs) ).
 
-compile(Program, Compiled) :- opt_1(nop,none,Program,Compiled).
+% optimization pass 2 -- [-] == zero the current cell.
+opt_2([],[]).
+opt_2([while,decr(_),wend|Cs],[zero|Xs]) :- opt_2(Cs,Xs).
+opt_2([X|Cs],[X|Xs]) :- opt_2(Cs,Xs).
+
+compile(Program, Compiled) :- opt_1(nop,none,Program,Compiled1),
+  opt_2(Compiled1,Compiled).
 
 % format the code...
 translate(right(N),F) :- format_to_atom(F,'  ptr += ~d;\n',[N]).
 translate(left(N),F) :- format_to_atom(F,'  ptr -= ~d;\n',[N]).
 translate(incr(N),F) :- format_to_atom(F,'  *ptr += ~d;\n',[N]).
 translate(decr(N),F) :- format_to_atom(F,'  *ptr -= ~d;\n',[N]).
+translate(zero,'  *ptr = 0;\n').
 translate(putch,'  putchar(*ptr);\n'). translate(getch,'  *ptr = getchar();\n').
 translate(while,'  while(*ptr) {\n').  translate(wend,'  }\n').
 translate(nop,'').
