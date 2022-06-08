@@ -11,14 +11,12 @@ print_frontmatter :- print('#include<stdio.h>\nstatic char array[30000];\n'),
   print('int main(int argc, char *argv[]) {\n  char *ptr = array;\n').
 print_endmatter :- print('  return 0;\n}').
 
-% utility to read all primitives from the program
-read_chars(IS, CHS) :- get_char(IS, Code),
-  (Code = end_of_file 
-    -> CHS = [] 
-    ; (bf_cmd(Code,Primitive) 
-        -> CHS=[Primitive|Ps], read_chars(IS,Ps) 
-        ; read_chars(IS,CHS) ) ).
-file_contents(FName, Contents) :- open(FName, read, IS), read_chars(IS, Contents), close(IS).
+% file_contents reads all primitives from the program, read_chars_ is a helper DCG.
+read_chars_(IS) --> { get_char(IS,Code) },
+  ( {bf_cmd(Code,Prim) } ->  [Prim] ; [] ),
+  ( {Code = end_of_file} ; read_chars_(IS) ).
+
+file_contents(FName, Primitives) :- open(FName, read, IS), phrase(read_chars_(IS),Primitives), close(IS).
 
 % compiler starts here ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 % to run a peephole optimization pass, we need to try the optimization everywhere in the
@@ -94,10 +92,10 @@ prprint(WS,TXT) :- print(WS), print(TXT).
 
 % format_code(indent_whitespace, code)
 format_code(_,[]).
-format_code(WS, [while_loop(WL)|Cs]) :- !, prprint(WS,'while(*ptr) {\n'), create_ws(WS,WS1), format_code(WS1,WL), 
-    prprint(WS,'}\n'), format_code(WS,Cs). 
-format_code(WS,[if_block(IB)|Cs]) :- !, prprint(WS,'if(*ptr) {\n'), create_ws(WS,WS1), format_code(WS1,IB),
-    prprint(WS,'}\n'), format_code(WS,Cs).
+format_code(WS, [while_loop(WL)|Cs]) :- !, prprint(WS,'while(*ptr) {\n'),
+  create_ws(WS,WS1), format_code(WS1,WL), prprint(WS,'}\n'), format_code(WS,Cs). 
+format_code(WS,[if_block(IB)|Cs]) :- !, prprint(WS,'if(*ptr) {\n'),
+  create_ws(WS,WS1), format_code(WS1,IB), prprint(WS,'}\n'), format_code(WS,Cs).
 format_code(WS,[C|Cs]) :- translate(C,OStr), !, prprint(WS,OStr), format_code(WS,Cs).
 
 % a `main` predicate to get things moving...
