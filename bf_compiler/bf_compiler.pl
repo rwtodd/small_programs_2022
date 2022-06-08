@@ -8,7 +8,7 @@ bf_cmd('[',while). bf_cmd(']',wend).
 
 % boilerplate for the C program...
 print_frontmatter :- print('#include<stdio.h>\nstatic char array[30000];\n'),
-  print('int main(int argc, char *argv[]) {\nchar *ptr = array;\n').
+  print('int main(int argc, char *argv[]) {\n  char *ptr = array;\n').
 print_endmatter :- print('  return 0;\n}').
 
 % utility to read all primitives from the program
@@ -20,7 +20,7 @@ read_chars(IS, CHS) :- get_char(IS, Code),
         ; read_chars(IS,CHS) ) ).
 file_contents(FName, Contents) :- open(FName, read, IS), read_chars(IS, Contents), close(IS).
 
-% compiler is here ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+% compiler starts here ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 % to run a peephole optimization pass, we need to try the optimization everywhere in the
 % code.  If it passes, it pushes the transform for the next parser.  If it fails, just
 % pop whatever is next and move on...
@@ -38,7 +38,7 @@ opt_setZero, [set(0)] --> [while],[add(N)],[wend], { N < 0 }.
 % peephole optimize set+add to one set.
 opt_setAdd, [set(N3)] -->  [set(N1)],[add(N2)], { N3 is N1 + N2 }.
 
-% peephole optimize add superfluous before set.
+% peephole optimize away superfluous add before set.
 opt_addSet, [set(N)] --> [add(_),set(N)].
 
 % peephole optimize [>++<-] and similar into an 
@@ -48,22 +48,22 @@ opt_addOffset, [addMultipleAtOffs(N,A),set(0)] -->
 opt_addOffset, [addMultipleAtOffs(N,A),set(0)] -->
   [while],[add(-1)],[move(N)],[add(A)],[move(N2)],[wend], { N2 is -N }.
 
+% it easier to ensure correctness by running each peephole phase
+% independently, rather that trying to save execution time interleaving them.
 run_phase(P,Code,Opt) :- phrase(peephole_pass(P,Opt),Code).
 
-% now capture the structure of the code by nesting the loops...
+% code_to_tree captures the structure of the code by nesting the loops... tree_xform is a helper.
 tree_xform([while_loop(WL)|Xs]) --> [while], !, tree_xform(WL), tree_xform(Xs).
 tree_xform([X|Xs]) --> [X], { X \= wend }, !, tree_xform(Xs).
 tree_xform([]) --> [wend] | [].
 
 code_to_tree(Code,Tree) :- phrase(tree_xform(Tree),Code).
 
-% now eliminate an initial while loop, which will never run...
+% Eliminate an initial while loop, which will never run...
 opt_initialWhile([while_loop(_)|Cs], Cs) :- !. 
 opt_initialWhile(Cs, Cs).
 
-% now turn a while loop that ends in a set(0) to an if_block...
-whileToIf_xform(while_loop(Code), if_block(Code)) :- last(Code,set(0)).
-
+% tree_opts run across all the terms in the code tree (as built by code_to_tree).
 tree_opt(XForm, [while_loop(Code)|Ts], [Opt|Opts]) :- tree_opt(XForm,Code,NewCode), 
   ( call(XForm,while_loop(NewCode),Opt) ; Opt=while_loop(NewCode) ), !, tree_opt(XForm,Ts,Opts).
 tree_opt(XForm, [if_block(Code)|Ts], [Opt|Opts]) :- tree_opt(XForm,Code,NewCode), 
@@ -71,29 +71,39 @@ tree_opt(XForm, [if_block(Code)|Ts], [Opt|Opts]) :- tree_opt(XForm,Code,NewCode)
 tree_opt(XForm, [T|Ts], [Opt|Opts]) :- (call(XForm,T,Opt) ; Opt=T), !, tree_opt(XForm,Ts,Opts).
 tree_opt(_,[],[]).
 
+% Our first tree_opt will turn a while loop that ends in a set(0) to an if_block...
+whileToIf_xform(while_loop(Code), if_block(Code)) :- last(Code,set(0)).
+
+% compile/2 threads together all of our optimization passes
 compile --> run_phase(opt_consec), run_phase(opt_setZero), 
    run_phase(opt_setAdd), run_phase(opt_addSet), run_phase(opt_addOffset), 
    code_to_tree, opt_initialWhile, tree_opt(whileToIf_xform).
 
+% END of compiler... now output C code...
+%
 % format the output primitive codes...
 translate(addMultipleAtOffs(N,A),F) :- format_to_atom(F,'*(ptr + ~d) += (~d * *ptr);\n',[N,A]).
 translate(move(N),F) :- format_to_atom(F,'ptr += ~d;\n',[N]).
 translate(add(N),F) :- format_to_atom(F,'*ptr += ~d;\n',[N]).
 translate(set(N), F) :- format_to_atom(F,'*ptr = ~d;\n',[N]).
 translate(putch,'putchar(*ptr);\n'). translate(getch,'*ptr = getchar();\n').
-translate(while,'ERROR!!!! WHILE !!!!! \n').  translate(wend,'ERROR!!!! WEND !!!!!\n').
-translate(nop,'ERROR!!!! NOP !!!!').
 
-% format_code(indent_lvl, code)
-format_code([]).
-format_code([while_loop(WL)|Cs]) :- !, print('while(*ptr) {\n'), format_code(WL), print('}\n'), format_code(Cs). % TODO indent
-format_code([if_block(IB)|Cs]) :- !, print('if(*ptr) {\n'), format_code(IB), print('}\n'), format_code(Cs). % TODO indent
-format_code([C|Cs]) :- translate(C,OStr), !, print(OStr), !, format_code(Cs).
+% Whitespace-handling for our pretty-print
+create_ws(WS,WS1) :- format_to_atom(WS1,'  ~a',[WS]).
+prprint(WS,TXT) :- print(WS), print(TXT).
+
+% format_code(indent_whitespace, code)
+format_code(_,[]).
+format_code(WS, [while_loop(WL)|Cs]) :- !, prprint(WS,'while(*ptr) {\n'), create_ws(WS,WS1), format_code(WS1,WL), 
+    prprint(WS,'}\n'), format_code(WS,Cs). 
+format_code(WS,[if_block(IB)|Cs]) :- !, prprint(WS,'if(*ptr) {\n'), create_ws(WS,WS1), format_code(WS1,IB),
+    prprint(WS,'}\n'), format_code(WS,Cs).
+format_code(WS,[C|Cs]) :- translate(C,OStr), !, prprint(WS,OStr), format_code(WS,Cs).
 
 % a `main` predicate to get things moving...
 run_file(FName) :- file_contents(FName, Code), !,
   compile(Code,Optimized), !, 
-  print_frontmatter, format_code(Optimized), print_endmatter.
+  print_frontmatter, format_code('  ',Optimized), print_endmatter.
 
 main :- argument_counter(2), argument_value(1,FName), !, run_file(FName).
 main :- print('Usage: bf_compiler <code.bf>\n').
