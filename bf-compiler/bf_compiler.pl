@@ -27,14 +27,14 @@ peephole_pass(Pass,[X|Xs]) --> [X], !, peephole_pass(Pass,Xs).
 peephole_pass(_,[]) --> [].
 
 % pass to gather consecutive moves and adds
-opt_consec, [move(N3)] --> [move(N1)],[move(N2)], { N3 is N1+N2 }.
-opt_consec, [add(N3)] --> [add(N1)],[add(N2)], { N3 is N1+N2 }.
+opt_consec, [move(N3)] --> [move(N1),move(N2)], { N3 is N1+N2 }.
+opt_consec, [add(N3)] --> [add(N1),add(N2)], { N3 is N1+N2 }.
 
 % peephole optimize [-] to set(0).
-opt_setZero, [set(0)] --> [while],[add(N)],[wend], { N < 0 }.
+opt_setZero, [set(0)] --> [while,add(N),wend], { N < 0 }.
 
 % peephole optimize set+add to one set.
-opt_setAdd, [set(N3)] -->  [set(N1)],[add(N2)], { N3 is N1 + N2 }.
+opt_setAdd, [set(N3)] -->  [set(N1),add(N2)], { N3 is N1 + N2 }.
 
 % peephole optimize away superfluous add before set.
 opt_addSet, [set(N)] --> [add(_),set(N)].
@@ -42,9 +42,9 @@ opt_addSet, [set(N)] --> [add(_),set(N)].
 % peephole optimize [>++<-] and similar into an 
 % offset add by a factor of the current cell.
 opt_addOffset, [addMultipleAtOffs(N,A),set(0)] -->
-  [while],[move(N)],[add(A)],[move(N2)],[add(-1)],[wend], { N2 is -N }.
+  [while,move(N),add(A),move(N2),add(-1),wend], { N2 is -N }.
 opt_addOffset, [addMultipleAtOffs(N,A),set(0)] -->
-  [while],[add(-1)],[move(N)],[add(A)],[move(N2)],[wend], { N2 is -N }.
+  [while,add(-1),move(N),add(A),move(N2),wend], { N2 is -N }.
 
 % it easier to ensure correctness by running each peephole phase
 % independently, rather that trying to save execution time interleaving them.
