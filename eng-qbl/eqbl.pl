@@ -25,7 +25,9 @@ ciphers(simple_cipher). ciphers(trigram_cipher). ciphers(liber_a_cipher).
 
 % look up a sigle Char in cipher Ciph, resulting in Val
 cipher_lookup(Ciph,Char,Val) :- call(Ciph,Alphabet), char_code(Char,Code), 
-   Idx is Code - 96, Idx > 0, arg(Idx, Alphabet, Val).
+   Idx is Code - 96, Idx > 0, Idx < 27, arg(Idx, Alphabet, Val).
+cipher_lookup(Ciph,Char,Val) :- call(Ciph,Alphabet), char_code(Char,Code), 
+   Idx is Code - 64, Idx > 0, Idx < 27, arg(Idx, Alphabet, Val).
 cipher_lookup(_,'-',0).
 cipher_lookup(_,'\'',0).
 
@@ -65,5 +67,21 @@ split_gem(Ciph,[C-V|Runs]) --> manyplus(cipher_found(Ciph),CVs), !,
 split_gem(Ciph,[Run|Runs]) --> manyplus(cipher_notfound(Ciph),Chars), !, 
   { atom_chars(Run,Chars) }, split_gem(Ciph,Runs).
 split_gem(_,[]) --> call(eos), [].
+
+% ------
+% Support for writing C code against the ciphers...
+format_elem(Ciph,E) :- E > 0, char_code(Ch,E), cipher_lookup(Ciph,Ch,V), !,
+   format('%d, ',[V]).
+format_elem(_,_) :- print('-1, ').
+
+make_c_array(Ciph) :-
+  format('signed char %s[] = {',[Ciph]),
+  repeat,
+    between(0,127,Idx),
+    format_elem(Ciph,Idx),
+    Idx = 127,
+  print('};'), !, nl.
+
+make_c_arrays :- findall(C,ciphers(C),Cs), maplist(make_c_array,Cs).
 
 % vim: filetype=prolog
