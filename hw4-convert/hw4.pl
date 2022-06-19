@@ -25,8 +25,8 @@ parse_book(IStrm, _, _, Start, Finish) :-
   seek(IStrm, bof, Start, Start),
   repeat,
     read_section(IStrm, Sect),
-    length(Prefix, 16), append(Prefix,_,Sect), format('%X: ~p\n',[Location,Prefix]), % TODO!
     seek(IStrm, current, 0, Location),
+    length(Prefix, 16), append(Prefix,_,Sect), format('%X: ~p\n',[Location,Prefix]), % TODO!
     Location >= Finish.
 
 
@@ -38,12 +38,15 @@ book_info(file_formats, 'ff_', 0x4bb40, 0xe4600).
 book_info(graphics_formats, 'gf_', 0xe4bc0, 0x01b3a80).
 book_info(windows_formats, 'wf_', 0x1b3e80, 0). % TODO!
 
-main :-
-  fname(formats_collection,Fname),
+run(Collection,Book) :-
+  fname(Collection,Fname),
   open_input(Fname,IS),
   read_files_directory(IS,FDir),
-  book_info(file_formats, Prefix, Start, Finish),
-  parse_book(IS, Prefix, FDir, Start, Finish),
+  book_info(Book, Prefix, Start, Finish),
+  parse_book(IS, Prefix, FDir, Start, Finish), !,
   close_input(IS).
+
+% run the first book for now
+main :- run(formats_collection, file_formats).
 
 % vim: filetype=prolog : sw=2 : ts=2 : sts=2 : expandtab :
