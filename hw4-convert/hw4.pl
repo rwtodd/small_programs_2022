@@ -13,11 +13,19 @@ open_input(FName,IStrm) :- open(FName, read, IStrm, [type(binary)]).
 close_input(IStrm) :- close(IStrm).
 
 % read in the list of image files (.PCX)
-parse_filedir(FDir,FDir). % TODO!
+many(P,[X|Xs]) --> call(P, X), !, many(P,Xs).
+many(_,[]) --> [].
+
+dos_fname([0x2e,X,Y,Z]) --> [0x2e,X,Y,Z].  % .EXT
+dos_fname([X|Xs]) --> [X], { X \= 0x2e }, { X \= 0x00 }, dos_fname(Xs).
+
+parse_filedir(Fs) --> many(dos_fname,Lists), !, { maplist(atom_codes,Fs, Lists) }.
+
 read_files_directory(IS, FDir) :-
-  seek(IS,bof, 0x1c380, 0x1c380),
+  seek(IS, bof, 0x1c380, 0x1c380),
   read_section(IS,Entries),
-  parse_filedir(Entries, FDir).
+  phrase(parse_filedir(FDir), Entries, Rest),
+  sum_list(Rest,0). % make sure the rest was all zeros
 
 % parse book contents
 parse_book(IStrm, _, _, Start, Finish) :-
@@ -28,7 +36,6 @@ parse_book(IStrm, _, _, Start, Finish) :-
     seek(IStrm, current, 0, Location),
     length(Prefix, 16), append(Prefix,_,Sect), format('%X: ~p\n',[Location,Prefix]), % TODO!
     Location >= Finish.
-
 
 % conveniences...
 fname(formats_collection,'~/win/Downloads/DDJFORM.HW4').
