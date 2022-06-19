@@ -39,14 +39,36 @@ read_files_directory(IS, fdir(Loc,Skip), FDir) :-
                                     % since that's what my files have
 
 % Book parsing code ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+skip(0) --> [].
+skip(N) --> { N  > 0 }, [_], { N1 is N - 1 }, skip(N1).
+
+take(0,[]) --> !, [].
+take(N,[T|Ts]) --> [T], { N1 is N - 1 }, take(N1,Ts).
+
+type_codes(0x06, chapter).
+type_codes(0x09, heading).
+type_codes(_, plain).
+
+parse_one_fragment(frag(Type, Content)) --> [LenLow,LenHi,TypeCode], { Len is LenHi * 256 + LenLow - 1}, 
+  { Len >= 0 }, { type_codes(TypeCode, Type)} , take(Len,Content).
+
+parse_wanted(Frags) --> many(parse_one_fragment, Frags).
+
+% determine if it's a section we want to output, and parse it if it's wanted
+parse_section(Parsed) --> [0x00, 0x03], skip(2), [0x00, 0x00, 0x01, Type],
+   { Type \= 38 }, skip(6), [Sz], { member(Sz,[2,3]) }, [0x03], 
+   { ToSkip is 27 + Sz }, skip(ToSkip), [0xff], !, parse_wanted(Parsed).
+parse_section(nothing) --> [].
+
 % parse book contents
 parse_book(IStrm, _, _, Start, Finish) :-
-  format('%X\n',[Finish]), % TODO
   seek(IStrm, bof, Start, Start),
   repeat,
     read_section(IStrm, Sect),
+    phrase(parse_section(Parsed),Sect, Rest),
+    ( Parsed = nothing ; sum_list(Rest,0) ),
+    print(Parsed), nl,
     seek(IStrm, current, 0, Location),
-    length(Prefix, 16), append(Prefix,_,Sect), format('%X: ~p\n',[Location,Prefix]), % TODO!
     Location >= Finish.
 
 % Setup and main ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
