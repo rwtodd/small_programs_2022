@@ -6,6 +6,12 @@ eos([],[]). % detect end of stream
 many(P,[X|Xs]) --> call(P, X), !, many(P,Xs).
 many(_,[]) --> [].
 
+skip(0) --> [].
+skip(N) --> { N  > 0 }, [_], { N1 is N - 1 }, skip(N1).
+
+take(0,[]) --> !, [].
+take(N,[T|Ts]) --> [T], { N1 is N - 1 }, take(N1,Ts).
+
 % read 64 bytes at a time, and keep adding until the last four bytes are not 00 00 00 00
 read_64(IStrm, Bs, More) :- length(Bs, 60), maplist(get_byte(IStrm), Bs), !, length(LastFour,4),
   maplist(get_byte(IStrm), LastFour), !, (LastFour = [0,0,0,0] -> More = yes ; More = no).
@@ -39,14 +45,26 @@ read_files_directory(IS, fdir(Loc,Skip), FDir) :-
                                     % since that's what my files have
 
 % Book parsing code ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-skip(0) --> [].
-skip(N) --> { N  > 0 }, [_], { N1 is N - 1 }, skip(N1).
-
-take(0,[]) --> !, [].
-take(N,[T|Ts]) --> [T], { N1 is N - 1 }, take(N1,Ts).
-
 type_codes(0x06, chapter).
 type_codes(0x09, heading).
+type_codes(0x0a, caption).
+type_codes(0x0b, table_text).
+type_codes(0x0c, table_header).
+type_codes(0x10, subheading).
+type_codes(0x11, image).  % maybe?
+type_codes(0x14, image).
+type_codes(0x15, code).
+type_codes(0x1c, note).
+type_codes(0x1e, listing_title).
+type_codes(0x1f, listing).
+type_codes(0x2d, book_part).
+type_codes(0x2e, plain). % body text
+type_codes(0x2f, bullet_point). 
+type_codes(0x30, checkmark).
+type_codes(0x31, tip).
+type_codes(0x32, warning).
+type_codes(0x33, code). % "disk"
+type_codes(0x34, number_list). % inside, 0x10 means "tab" kinda
 type_codes(_, plain).
 
 parse_one_fragment(frag(Type, Content)) --> [LenLow,LenHi,TypeCode], { Len is LenHi * 256 + LenLow - 1}, 
