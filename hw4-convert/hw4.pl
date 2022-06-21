@@ -238,6 +238,7 @@ format_output([X|Xs], State0, State1) :-
 
 % The inner text has codes that need to be rendered
 not_a_12(X) --> [X], { X \= 0x12 }.
+hex_zero(0) --> [0x00].
 
 inner_text                       --> [0x09], skip(6), [0x09].
 inner_text, [image(NL,NH)]       --> [0x11,0x17,0x01,0x17,0x00], !, take(2, [NL,NH]), skip_rest, !.
@@ -248,8 +249,11 @@ inner_text, [toggle_superscript] --> [0x05,0x10,0x05].
 inner_text, [word([0x5c,0x25])]  --> [0x25].  % \%
 inner_text, [word([0x5c,0x24])]  --> [0x24].  % \$
 inner_text, [word([92,116,101,120,116,98,97,99,107,115,108,97,115,104,123,125])]  --> [0x5c].  % \textbackslash
-inner_text, [toggle_red]         --> [0x07], many([0x00],_), [0x06, 0x0a, 0x00, 0x07, 0x0b, 0xfc, 0x0b].
-inner_text, [toggle_black]       --> [0x07], many([0x00],_), [0x07, 0x0c].
+inner_text, [124]                --> [0x07,0x07,0x0a,0x00,0x07,0xab].
+inner_text, [43]                 --> [0x07,0x07,0x0a,0x00,0x07,0xf9].
+inner_text, [toggle_red]         --> [0x07], many(hex_zero,_), [0x06, 0x0a, 0x00, 0x07, 0x0b, 0xfc, 0x0b].
+inner_text, [toggle_black]       --> [0x07], many(hex_zero,_), [0x07, 0x0c].
+inner_text                       --> [0x07], many(hex_zero,_), [0x07].
 inner_text, [word(XS)]           --> [0x01], skip(2), [0x01], many_plus(not_a_12,XS), [0x12]. 
 inner_text, [0x20,0x20]          --> [0x10].
 
@@ -267,8 +271,10 @@ type_codes(0x10, subheading).
 %type_codes(0x11, image).  % maybe?
 %type_codes(0x14, image).
 type_codes(0x15, code).
+type_codes(0x17, table_text).
 type_codes(0x1c, note).
 type_codes(0x1e, listing_title).
+type_codes(0x1d, bullet_point).
 type_codes(0x1f, listing).
 type_codes(0x2d, book_part).
 type_codes(0x2e, plain). % body text
@@ -305,7 +311,7 @@ parse_wanted(Parsed) --> many_plus(parse_one_fragment, Frags), { phrase(clean_fr
 
 % determine if it's a section we want to output, and parse it if it's wanted
 parse_section(Parsed) --> [0x00, 0x03], skip(3), [0x00, 0x01, Type],
-   { Type \= 38 }, skip(6), [Sz], { member(Sz,[2,3]) }, [0x03], 
+   { Type \= 0x38 }, skip(6), [Sz], { member(Sz,[2,3]) }, [0x03], 
    skip(29), ([0xff] | [_,0xff]), !, parse_wanted(Parsed).
 parse_section(nothing) --> [].
 
@@ -335,8 +341,9 @@ fname(algos_collection,'~/win/Downloads/ALGO.HW4', fdir(0x38680, 36)).
 
 % book_info(name, output_name, start_location, end_location).
 book_info(file_formats, 'ff_hw4.tex', 0x4bb40, 0xe4600).
-% book_info(file_formats, 'ff_hw4.tex', 0xc4900, 0xe2e40).
+% TEST book_info(file_formats, 'ff_hw4.tex', 0xc4900, 0xe2e40).
 book_info(graphics_formats, 'gf_hw4.tex', 0xe4bc0, 0x01b3a80).
+% TEST book_info(graphics_formats, 'gf_hw4.tex', 949056, 0x01b3a80).
 book_info(windows_formats, 'wf_hw4.tex', 0x1b3e80, 0). % TODO!
 
 run(Collection,Book) :-
@@ -354,6 +361,6 @@ just_get_fdir(Collection,FDir) :-   % for testing
   close_input(IS).
 
 % run the first book for now
-main :- run(formats_collection, file_formats).
+main :- run(formats_collection, graphics_formats).
 
 % vim: filetype=prolog : sw=2 : ts=2 : sts=2 : expandtab :
