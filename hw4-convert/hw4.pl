@@ -1,3 +1,6 @@
+% Run with:
+%   GLOBALSZ=699999 TRAILSZ=100000 gprolog
+
 % convert hyperReader 4 files to html
 :- initialization(main).
 
@@ -135,6 +138,10 @@ format_one_code(OF, word(XS), State, State) :-
   atom_codes(A,XS),
   print(OF,A).
 
+format_one_code(OF, ff_val(X), State, State) :-
+  !,
+  format(OF,'\\ffval{~d}',[X]).
+
 format_one_code(OF, X, State, State) :- put_code(OF,X).
 
 undo_all_states(OF,State,State1) :- 
@@ -230,7 +237,7 @@ format_one_frag(frag(_,P),State,State1) :-
 format_output(nothing, State, State).
 format_output([], State, State).
 format_output([X|Xs], State0, State1) :-
-  print(X),nl,nl, % TODO testing code...
+  %print(X),nl,nl, % TODO testing code...
   format_one_frag(X,State0,StateX), !,
   format_output(Xs,StateX,State1).
 
@@ -246,14 +253,17 @@ inner_text, [toggle_bold]        --> [0x05,0x01,0x05].
 inner_text, [toggle_italic]      --> [0x05,0x02,0x05].
 inner_text, [toggle_underline]   --> [0x05,0x04,0x05].
 inner_text, [toggle_superscript] --> [0x05,0x10,0x05].
+inner_text, [ff_val(X)]          --> [0xff,X,0xff].
 inner_text, [word([0x5c,0x25])]  --> [0x25].  % \%
 inner_text, [word([0x5c,0x24])]  --> [0x24].  % \$
+inner_text, [word([0x5c,0x5f])]  --> [0x5f].  % \_
+inner_text, [word([0x5c,94,97])] --> [0x83].  % 83 -> \^a
 inner_text, [word([92,116,101,120,116,98,97,99,107,115,108,97,115,104,123,125])]  --> [0x5c].  % \textbackslash
 inner_text, [124]                --> [0x07,0x07,0x0a,0x00,0x07,0xab].
 inner_text, [43]                 --> [0x07,0x07,0x0a,0x00,0x07,0xf9].
 inner_text, [toggle_red]         --> [0x07], many(hex_zero,_), [0x06, 0x0a, 0x00, 0x07, 0x0b, 0xfc, 0x0b].
-inner_text, [toggle_black]       --> [0x07], many(hex_zero,_), [0x07, 0x0c].
-inner_text                       --> [0x07], many(hex_zero,_), [0x07].
+inner_text, [toggle_black]       --> [0x07], skip(3), [0x07, 0x0c].
+inner_text                       --> [0x07], skip(3), [0x07].
 inner_text, [word(XS)]           --> [0x01], skip(2), [0x01], many_plus(not_a_12,XS), [0x12]. 
 inner_text, [0x20,0x20]          --> [0x10].
 
@@ -334,33 +344,47 @@ parse_book(IStrm, Prefix, FDir, Start, Finish) :-
 
 % Setup and main ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 % conveniences...
-% hw4_info(name, file, directory_location).
-fname(formats_collection,'~/win/Downloads/DDJFORM.HW4', fdir(0x1c340,56)).
-fname(algos_collection,'~/win/Downloads/ALGO.HW4', fdir(0x38680, 36)).
-% TESTING fname(algos_collection,'~/win/Downloads/ALGO.HW4', fdir(0x45a00, 0)).
+% hw4_info(name, file, directory_location,books).
+hw4_info(formats_collection,'~/win/Downloads/DDJFORM.HW4', fdir(0x1c340,56),
+  [
+  file_formats,
+  graphics_formats,
+  windows_formats, 
+  internet_formats, 
+  mf_formats,
+  emf_formats,
+  ddj_formats
+  ]).
+hw4_info(algos_collection,'~/win/Downloads/ALGO.HW4', fdir(0x38680, 36),
+  []).
 
 % book_info(name, output_name, start_location, end_location).
-book_info(file_formats, 'ff_hw4.tex', 0x4bb40, 0xe4600).
-% TEST book_info(file_formats, 'ff_hw4.tex', 0xc4900, 0xe2e40).
-book_info(graphics_formats, 'gf_hw4.tex', 0xe4bc0, 0x01b3a80).
-% TEST book_info(graphics_formats, 'gf_hw4.tex', 949056, 0x01b3a80).
-book_info(windows_formats, 'wf_hw4.tex', 0x1b3e80, 0). % TODO!
+book_info(file_formats, 'ff_hw4.tex', 0x4bb40, 0xe4600).       % file formats
+book_info(graphics_formats, 'gf_hw4.tex', 0xe4bc0, 0x01b3a80). % graphics file formats
+book_info(windows_formats, 'wf_hw4.tex', 0x1b3e80, 0x23c300).  % windows file formats
+book_info(internet_formats, 'if_hw4.tex', 0x23c300, 0x2f1940). % internet file formats
+book_info(mf_formats, 'mf_hw4.tex', 0x2f1940, 0x3540c0).       % more file formats
+book_info(ffh_formats, 'ffh_hw4.tex', 0x3540c0, 0x41d200).     % file formats handbook
 
-run(Collection,Book) :-
-  fname(Collection,Fname, FDirLoc),
+% run all books in collection
+run_one_book(IS, FDir, Book) :-
+  book_info(Book, OFName, Start, Finish),
+  parse_book(IS, OFName, FDir, Start, Finish), !.
+
+run(Collection) :-
+  hw4_info(Collection, Fname, FDirLoc, Books),
   open_input(Fname,IS),
   read_files_directory(IS,FDirLoc, FDir),
-  book_info(Book, OFName, Start, Finish),
-  parse_book(IS, OFName, FDir, Start, Finish), !,
+  maplist(run_one_book(IS,FDir), Books), !,
   close_input(IS).
 
-just_get_fdir(Collection,FDir) :-   % for testing
+get_fdir(Collection,FDir) :-   % for testing
   fname(Collection,Fname, FDirLoc),
   open_input(Fname,IS),
   read_files_directory(IS,FDirLoc, FDir),
   close_input(IS).
 
 % run the first book for now
-main :- run(formats_collection, graphics_formats).
+main :- run(formats_collection).
 
 % vim: filetype=prolog : sw=2 : ts=2 : sts=2 : expandtab :
