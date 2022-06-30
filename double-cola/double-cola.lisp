@@ -16,19 +16,12 @@
 ;; 
 ;; Write a program that will print the name of a man who will drink the n-th can.
 
+(defmacro frac (n) "fractional part of a float" `(nth-value 1 (ffloor ,n)))
 (defun double-cola (n) 
   (aref #(sheldon leonard penny raj howard)
-      (let* ((epsilon 0.0000001d0)
-             (nfrac 
-               (- (expt 2d0
-                     (nth-value 1 
-                               (ffloor (log (/ (+ n 4) 5d0) 2d0))))
-                  (- 1 epsilon))))
-          (cond ((< nfrac 0.2d0) 0)
-                ((< nfrac 0.4d0) 1)
-                ((< nfrac 0.6d0) 2)
-                ((< nfrac 0.8d0) 3)
-                (t 4)))))
+      (let ((epsilon 0.0000001d0)
+            (nfrac (1- (expt 2d0 (frac (log (/ (+ n 4) 5d0) 2d0))))))
+          (floor (* (+ epsilon nfrac) 5)))))
 
 ;; unfortunately I had to deal with some floating-point roundoff issues, but
 ;; including the epsilon term cleaned that up enough to work for millions of
