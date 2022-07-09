@@ -1,5 +1,5 @@
 module rwt.gmodz {
   requires org.apache.groovy;
-  exports rwt.gmodz;
+  opens rwt.gmodz;
 }
 
