@@ -9,6 +9,7 @@ independent source-control treatment.
 - **eng\-qbl**: just playing with gematria in GNU-prolog + DCG grammars.
 - **grab\-flacs**: powershell script to pull the .FLAC addresses from a web page, and then schedule `BITS`-tasks to download them. 
 - **groovy\-modular**: a test program to check out building a JPMS modular JAR in groovy.
+- **groovy\-genrepl**: a test getting gradle to craft a groovysh.bat command with the project classpath 
 - **hw4\-convert**: code to extract the text of books in obsolete/forgotten HW4 format. GNU-Prolog, and it does work except on long books GNU-Prolog runs into memory issues on the code I've written.
 - **jfx\-pixelart\-scale**: a text program to test scaling bitmaps without aliasing in JavaFX.
 - **jswing\-pixelart\-scale**: a text program to test scaling bitmaps without aliasing in Java+Swing.
