@@ -59,7 +59,7 @@ static int get_jpeg_size(unsigned char* data, unsigned int data_size, unsigned s
 	}else{ return 0; }                     //Not a valid SOI header
 }
 
-void insertJPEGFile(const char *fileName, int fileSize, PJPEG2PDF pdfId, PageOrientation pageOrientation, ScaleMethod scale, bool cropHeight, bool cropWidth) {
+void insertJPEGFile(const char *fileName, int fileSize, PJPEG2PDF pdfId, PageOrientation pageOrientation, ScaleMethod scale, bool cropHeight, bool cropWidth, double forcedDPI) {
 	FILE  *fp;
 	unsigned char *jpegBuf;
 	int readInSize; 
@@ -85,6 +85,9 @@ void insertJPEGFile(const char *fileName, int fileSize, PJPEG2PDF pdfId, PageOri
 		fprintf(stderr,"Warning: File %s should be %d Bytes. But only read in %d Bytes.\n", fileName, fileSize, readInSize);
 
 	if(1 == get_jpeg_size(jpegBuf, readInSize, &jpegImgW, &jpegImgH, &colors, &dpiX, &dpiY)) {
+		if(forcedDPI > 0) {
+		  dpiX = dpiY = forcedDPI;
+                }
 		printf("Adding %s (%dx%d, %.0fx%.0f dpi)\n", fileName, jpegImgW, jpegImgH, dpiX, dpiY);
 		/* Add JPEG File into PDF */
 		Jpeg2PDF_AddJpeg(pdfId, jpegImgW, jpegImgH, readInSize, jpegBuf, (3==colors), pageOrientation, dpiX, dpiY, scale, cropHeight, cropWidth);
@@ -96,7 +99,7 @@ void insertJPEGFile(const char *fileName, int fileSize, PJPEG2PDF pdfId, PageOri
 	free(jpegBuf);
 }
 
-void getJpegFileImageDimensions(const char *fileName, int fileSize, double *width, double *height) { //in inches; copy-pasted from insertJPEGFile(), Jpeg2PDF_AddJpeg() call is replaced with width/height calculation.
+void getJpegFileImageDimensions(const char *fileName, int fileSize, double *width, double *height, double forcedDPI) { //in inches; copy-pasted from insertJPEGFile(), Jpeg2PDF_AddJpeg() call is replaced with width/height calculation.
 	FILE  *fp;
 	unsigned char *jpegBuf;
 	int readInSize; 
@@ -122,6 +125,9 @@ void getJpegFileImageDimensions(const char *fileName, int fileSize, double *widt
 		fprintf(stderr,"Warning: File %s should be %d Bytes. But only read in %d Bytes.\n", fileName, fileSize, readInSize);
 
 	if(1 == get_jpeg_size(jpegBuf, readInSize, &jpegImgW, &jpegImgH, &colors, &dpiX, &dpiY)) {
+		if(forcedDPI > 0) {
+		  dpiX = dpiY = forcedDPI;
+                }
 		//printf("Adding %s (%dx%d, %.0fx%.0f dpi)\n", fileName, jpegImgW, jpegImgH, dpiX, dpiY);
 		///* Add JPEG File into PDF */
 		//Jpeg2PDF_AddJpeg(pdfId, jpegImgW, jpegImgH, readInSize, jpegBuf, (3==colors), pageOrientation, dpiX, dpiY, scale, cropPage);
@@ -142,7 +148,7 @@ inline double max(double a, double b) {
 	return a>b ? a : b;
 }
 
-void findMaximumDimensions(char **filesarray, int globlen, bool fixedOrientation, double *maxWidth, double *maxHeight) {
+void findMaximumDimensions(char **filesarray, int globlen, bool fixedOrientation, double *maxWidth, double *maxHeight, double forcedDPI) {
 	int i;
 	double width, height;
 	struct stat sb;
@@ -153,7 +159,7 @@ void findMaximumDimensions(char **filesarray, int globlen, bool fixedOrientation
 			perror("stat");
 			exit(EXIT_FAILURE);
 		}
-		getJpegFileImageDimensions(filesarray[i], sb.st_size, &width, &height);
+		getJpegFileImageDimensions(filesarray[i], sb.st_size, &width, &height, forcedDPI);
 		if(fixedOrientation){
 			if(width>*maxWidth){
 				*maxWidth=width;
@@ -175,6 +181,7 @@ void findMaximumDimensions(char **filesarray, int globlen, bool fixedOrientation
 void printHelp( char *appname ){
 	fprintf(stderr, "Usage: %s [options] filemask-1 ... [filemask-N]\n" \
 		"  -o output        output PDF file name. required.\n" \
+                "  [-d dpi]         Override the DPI in the images.\n" \
 		"  [-p papersize]   A0-A10,Letter,Legal,Junior,Ledger,Tabloid,auto default:A4\n" \
 		"  [-n orientation] auto,portrait,landscape default:auto\n" \
 		"  [-m marginsize]  margins size in inches (specify 'mm' for millimeters) default:0\n" \
@@ -200,6 +207,7 @@ int main(int argc, char *argv[]) {
 	char *title=NULL, *author=NULL, *keywords=NULL, *subject=NULL, *creator=NULL;
 	int opt;
 	double pageWidth=8.27, pageHeight=11.69, pageMargins=0;
+        double forcedDPI = -1;
 	int globindex=0, globlen=0;
 	glob_t globbuf;
 	char **filesarray = NULL;
@@ -220,8 +228,11 @@ int main(int argc, char *argv[]) {
 		printHelp( argv[0] );
 	}
 
-	while ((opt = getopt(argc, argv, "o:p:n:z:m:t:a:k:s:c:r:h")) != -1) {
+	while ((opt = getopt(argc, argv, "d:o:p:n:z:m:t:a:k:s:c:r:h")) != -1) {
 		switch (opt) {
+                        case 'd':
+				forcedDPI = atof(optarg);
+                                break;
 			case 'o':
 				outputFilename = optarg;
 				break;
@@ -427,7 +438,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	if(paperSizeAuto){ // determine paper size from maximum jpeg dimensions
-		findMaximumDimensions(filesarray, globlen, pageOrientation==Portrait || pageOrientation==Landscape, &pageWidth, &pageHeight);
+		findMaximumDimensions(filesarray, globlen, pageOrientation==Portrait || pageOrientation==Landscape, &pageWidth, &pageHeight, forcedDPI);
 		printf("Selected paper size: %.2f x %.2f \" or %.2f x %.2f cm.\n", pageWidth, pageHeight, pageWidth*2.54, pageHeight*2.54);
 	}
 
@@ -443,7 +454,7 @@ int main(int argc, char *argv[]) {
 				perror("stat");
 				exit(EXIT_FAILURE);
 			}
-			insertJPEGFile(filesarray[globindex], sb.st_size, pdfId, pageOrientation, scale, cropHeight, cropWidth);
+			insertJPEGFile(filesarray[globindex], sb.st_size, pdfId, pageOrientation, scale, cropHeight, cropWidth, forcedDPI);
 		}
 
 		gettimeofday(&tv1,NULL);
