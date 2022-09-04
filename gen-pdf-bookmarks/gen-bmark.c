@@ -1,59 +1,91 @@
 #include<stdio.h>
+#include<stdlib.h>
 #include<string.h>
 
-#define err_exit(msg) { fputs(msg "\n",stderr); return 1; }
+#define err_exit(msg) { fprintf(stderr,"line %d: %s\n",lineno,msg); return 1; }
+
 int
 main(int argc, char **argv)
 {
-  char buf[256];  /* good enough for this toy program */
+  /* we need a buffer for the line of input */
+  char *line_buf = NULL; size_t line_bufsz = 0, line_len = 0;
+  int lineno = 0; /*track the line number */
 
-  /* we need to store labels text and output it at the end... so ... */
-  char labels[1024];
-  labels[0] = '\0';
-  size_t label_sz = 0;
+  /* we need a buffer for the page label text */
+  size_t labelssz = 512, labels_len = 0;
+  char *labels = malloc(labelssz);
 
-  int poffs = 0;  /* the current page offset */
+  /* we need to track the offset between the book pages and the pdf pages */
+  int poffs = 0;  
 
   /* keep reading until we run out of data */
-  while(1) {
-    int indent = -1,pageno = -1;
+  while((line_len = getline(&line_buf, &line_bufsz,stdin)) != -1) {
+    int index = -1, indent = -1, pageno = -1;
     int pdfpg, bookpg;
 
-    /* check for book numbering commands */
-    if(scanf("PAGE %d = BOOK %d",&pdfpg,&bookpg) == 2) {
-       /* check for roman numerals */
-       char * style = (scanf("%[rR]",buf) == 1) ? "LowercaseRomanNumerals" : "DecimalArabicNumerals";
+    ++lineno;
 
-       /* eat the rest of the line the CR/LF */
-       if( scanf("%*[^\r\n]") < 0 || scanf("%*[\r\n]") < 0) 
-         err_exit("error on PAGE=BOOK line???");
+    /* remove the trailing \n or \r\n */
+    if(line_len > 1 && line_buf[line_len - 2] == '\r') line_buf[line_len - 2] = '\0';
+    else if(line_len > 0 && line_buf[line_len-1] == '\n') line_buf[line_len - 1] = '\0';
+
+    /* check for book numbering commands */
+    if(sscanf(line_buf,"PAGE %d = BOOK %d%n",&pdfpg,&bookpg,&index) == 2) {
+       char * style;
+       /* check for roman numerals */
+       switch(line_buf[index]) {
+         case 'r': 
+           style="LowercaseRomanNumerals"; break;
+         case 'R':
+           style="UppercaseRomanNumerals"; break;
+         default:
+           style="DecimalArabicNumerals"; break;
+       }
+
+       /* make sure there's room for more labels */
+       if(labels_len > labelssz - 100) {
+          labelssz *= 2;
+          if(!(labels = realloc(labels, labelssz)))
+            err_exit("could not allocate memory for labels!");
+       }
+
        poffs = pdfpg - bookpg;
-       int len = sprintf(labels + label_sz, 
+       int len = sprintf(labels + labels_len,
           "PageLabelBegin\nPageLabelNewIndex: %d\nPageLabelStart: %d\nPageLabelNumStyle: %s\n",
           pdfpg, bookpg, style);
        if(len < 0) err_exit("error formatting page labels!");
-       label_sz += len;
+       labels_len += len;
     }
 
     /* check for a new named page (sets offset back to 0) */
-    else if(scanf("NAME %d: %[^\r\n]%*[\r\n]",&pdfpg,buf) == 2) {
+    else if(sscanf(line_buf,"NAME %d: %n",&pdfpg,&index) == 1) {
        poffs = 0;
-       int len = sprintf(labels + label_sz, 
+
+       /* make sure there's room for more labels */
+       if(labels_len > labelssz - 100) {
+          labelssz *= 2;
+          if(!(labels = realloc(labels, labelssz)))
+            err_exit("could not allocate memory for labels!");
+       }
+
+       int len = sprintf(labels + labels_len, 
           "PageLabelBegin\nPageLabelNewIndex: %d\nPageLabelStart: 1\nPageLabelPrefix: %s\nPageLabelNumStyle: NoNumber\n",
-          pdfpg, buf);
+          pdfpg, line_buf + index);
        if(len < 0) err_exit("error formatting page labels!");
-       label_sz += len;
-       continue;
+       labels_len += len;
     }
 
-    /* if we got here we better have a bookmark */
-    else {
-      int result = scanf(" %n%d %[^\r\n]%*[\r\n]",&indent,&pageno,buf);
-      if(result != 2)
-        if(indent > 0 || pageno != -1) { err_exit("bad input!"); }
-        else break;  
+    /* check for a bookmark */
+    else if(sscanf(line_buf," %n%d %n",&indent,&pageno,&index) == 1) {
       printf("BookmarkBegin\nBookmarkTitle: %s\nBookmarkLevel: %d\nBookmarkPageNumber: %d\n",
-          buf, indent+1, pageno+poffs);
+          line_buf+index, indent+1, pageno+poffs);
+    }
+
+    /* it should be blank or a #-comment otherwise */
+    else {
+      const char *cur = line_buf;
+      while(*cur++ == ' ') /*nothing*/;
+      if(*cur != '#' && *cur != '\0') err_exit("bad input!");
     }
   }
 

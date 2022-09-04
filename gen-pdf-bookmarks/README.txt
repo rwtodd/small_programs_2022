@@ -40,3 +40,9 @@ the most-recent 'PAGE' command) ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   24 Only indent by 1 space at a time... it's a rigid simple C program
 28 Chapter Three
 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+5) Blank lines, or lines with # followed by comment text are allowed
+
+# this is a comment
+    # so is this
+
