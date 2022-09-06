@@ -5,8 +5,9 @@
 
 #include<stdio.h>
 #include<string.h>
+#include<stdlib.h>
 
-#define err_exit(msg) {fputs(msg "\n",stderr); return 1;}
+#define err_exit(msg) {fputs(msg "\n",stderr); return EXIT_FAILURE;}
 int
 main(int argc, char **argv)
 {
@@ -30,5 +31,5 @@ main(int argc, char **argv)
     while(1 == scanf(" %[)]",buf)) paren_depth -= strlen(buf);  /* account for closing parens */
     if(paren_depth < 0) err_exit("bad format: too many closing parens!");
   }
-  return 0;
+  return EXIT_SUCCESS;
 }
