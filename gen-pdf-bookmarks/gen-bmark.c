@@ -2,7 +2,7 @@
 #include<stdlib.h>
 #include<string.h>
 
-#define err_exit(msg) { fprintf(stderr,"line %d: %s\n",lineno,msg); return 1; }
+#define err_exit(msg) { fprintf(stderr,"line %d: %s\n",lineno,msg); return EXIT_FAILURE; }
 
 int
 main(int argc, char **argv)
@@ -84,11 +84,12 @@ main(int argc, char **argv)
     /* it should be blank or a #-comment otherwise */
     else {
       const char *cur = line_buf;
-      while(*cur++ == ' ') /*nothing*/;
+      while(*cur == ' ') ++cur;
       if(*cur != '#' && *cur != '\0') err_exit("bad input!");
     }
   }
 
   /* write the saved page labels so they appear in a block at the end */
   puts(labels);
+  return EXIT_SUCCESS;
 }
