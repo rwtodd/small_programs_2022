@@ -29,8 +29,8 @@ main(int argc, char **argv)
     if(line_len > 1 && line_buf[line_len - 2] == '\r') line_buf[line_len - 2] = '\0';
     else if(line_len > 0 && line_buf[line_len-1] == '\n') line_buf[line_len - 1] = '\0';
 
-    /* check for book numbering commands */
-    if(sscanf(line_buf,"PAGE %d = BOOK %d%n",&pdfpg,&bookpg,&index) == 2) {
+    /* check for book numbering commands: page x = book y, (technically GaP x = BoB y would work too!) */
+    if(sscanf(line_buf,"%*[PpAaGgEe] %d = %*[BbOoKk] %d%n",&pdfpg,&bookpg,&index) == 2) {
        char * style;
        /* check for roman numerals */
        switch(line_buf[index]) {
@@ -57,8 +57,8 @@ main(int argc, char **argv)
        labels_len += len;
     }
 
-    /* check for a new named page (sets offset back to 0) */
-    else if(sscanf(line_buf,"NAME %d: %n",&pdfpg,&index) == 1) {
+    /* check for a new named page (sets offset back to 0): name 21: <the name> */
+    else if(sscanf(line_buf,"%*[NnAaMmEe] %d: %n",&pdfpg,&index) == 1) {
        poffs = 0;
 
        /* make sure there's room for more labels */
