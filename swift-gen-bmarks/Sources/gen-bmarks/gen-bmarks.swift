@@ -1,5 +1,4 @@
 import Foundation
-import _StringProcessing
 
 protocol PageLabel {
     var bookToPdfPage: Int { get }
@@ -27,26 +26,22 @@ struct page_label_parser {
     }
   }
 
-  private static let named = try! Regex(#"(?i)^ *name (\d+): *(.*)$"#)
-  private static let numbered = try! Regex(#"(?i)^ *page *(\d+) *= *book *(\d+)([r]?) *$"#)
+  //private static let named = try! Regex(#"(?i)^ *name (\d+): *(.*)$"#)
+  private static let named = #/(?i)^ *name (?<page>\d+): *(?<name>.*)$/#
+  private static let numbered = #/(?i)^ *page *(?<pdf>\d+) *= *book *(?<book>\d+)(?<style>[r]?) *$/#
 
   static func parse(_ s: String) -> PageLabel? {
      if let match = s.firstMatch(of: named) {
-         return NamedLabel(
-           pdfPage: Int(match[1].substring!)!,
-           pageName: String(match[2].substring!))
+         return NamedLabel(pdfPage: Int(match.page)!, pageName: String(match.name))
      }
      if let match = s.firstMatch(of: numbered) {
          var style : String
-         switch(match[3].substring!) {
+         switch(match.style) {
           case "r": style="LowercaseRomanNumerals"
           case "R": style="UppercaseRomanNumerals"
           default: style="DecimalArabicNumerals"
          }
-         return NumberedLabel(
-           pdfPage: Int(match[1].substring!)!,
-           bookPage: Int(match[2].substring!)!,
-           numStyle: style)
+         return NumberedLabel(pdfPage: Int(match.pdf)!, bookPage: Int(match.book)!, numStyle: style)
      } 
      return nil 
   }
@@ -55,7 +50,7 @@ struct page_label_parser {
 @main
 public struct hw {
     public static func main() {
-        let mark = try! Regex(#"^ *(\d+)(p?) +(.*)$"#)
+        let mark = #/^ *(?<page>\d+)(?<ptype>p?) +(?<name>.*?) *$/#
         var labels : [PageLabel] = []
         var offset = 0
         var line_number = 0
@@ -65,12 +60,10 @@ public struct hw {
              labels.append(label)
              offset = label.bookToPdfPage
           } else if let match = ln.firstMatch(of: mark) {
-             let m1 = match[1].substring!
-             let indent = 1 + m1.startIndex.utf16Offset(in: ln)
-             let ptype = match[2].substring!.count
-             let pdfpage = Int(m1)! + (1 - ptype)*offset
-             let name = match[3].substring!
-             print("BookmarkBegin\nBookmarkTitle: \(name)\nBookmarkLevel: \(indent)\nBookmarkPageNumber: \(pdfpage)")
+             let indent = 1 + match.page.startIndex.utf16Offset(in: ln)
+             let ptype = match.ptype.count
+             let pdfpage = Int(match.page)! + (1 - ptype)*offset
+             print("BookmarkBegin\nBookmarkTitle: \(match.name)\nBookmarkLevel: \(indent)\nBookmarkPageNumber: \(pdfpage)")
           } else {
              fputs("Bad input on line \(line_number)!\n", stderr)
              exit(1)

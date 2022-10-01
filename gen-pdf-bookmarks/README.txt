@@ -33,8 +33,10 @@ the most-recent 'PAGE' command) ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 8 Chapter One
  10 Subheading 1
  12 Subheading 2
-14 Chapter Two
- 15 Indenting makes nested bookmarks like you might expect
+ 13p A 'p' suffix on the number means it's a PDF page, not a BOOK page
+ 14 (Now we are back to BOOK pages)
+15 Chapter Two
+ 16 Indenting makes nested bookmarks like you might expect
  21 So these two items are "under" Chapter Two in most PDF readers
   22 So this is a third-level of nesting
   24 Only indent by 1 space at a time... it's a rigid simple C program

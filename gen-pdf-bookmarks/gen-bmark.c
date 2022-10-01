@@ -22,6 +22,7 @@ main(int argc, char **argv)
   while((line_len = getline(&line_buf, &line_bufsz,stdin)) != -1) {
     int index = -1, indent = -1, pageno = -1;
     int pdfpg, bookpg;
+    char ptype;
 
     ++lineno;
 
@@ -76,9 +77,15 @@ main(int argc, char **argv)
     }
 
     /* check for a bookmark */
-    else if(sscanf(line_buf," %n%d %n",&indent,&pageno,&index) == 1) {
+    else if(sscanf(line_buf," %n%d%c %n",&indent,&pageno,&ptype,&index) == 2) {
+      switch(ptype) {
+         case 'p':
+         case 'P': break;
+         case ' ': pageno += poffs; break;
+         default: err_exit("bad input, looks like page suffix!");
+      }
       printf("BookmarkBegin\nBookmarkTitle: %s\nBookmarkLevel: %d\nBookmarkPageNumber: %d\n",
-          line_buf+index, indent+1, pageno+poffs);
+          line_buf+index, indent+1, pageno);
     }
 
     /* it should be blank or a #-comment otherwise */
