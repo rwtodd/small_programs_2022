@@ -16,8 +16,8 @@ $urls += ($base + '/folder.jpg')
 $dests += 'cover.jpg'
 
 # perform the transfer and wait for it
-$Job = Start-BitsTransfer -Source $urls -Destination $dests -Asynchronous
-while (($Job.JobState -eq "Transferring") -or ($Job.JobState -eq "Connecting")) { 
+$Job = Start-BitsTransfer -Source $urls -Destination $dests -Asynchronous -DisplayName ($base -replace '.*/','')
+while (($Job.JobState -eq "Transferring") -or ($Job.JobState -eq "Connecting") -or ($Job.JobState -eq "Suspended")) { 
     # Write-Output "$($Job.BytesTransferred/1MB) of $($Job.BytesTotal/1MB)"
     Start-Sleep 10
 }

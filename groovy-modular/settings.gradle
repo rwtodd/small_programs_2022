@@ -1,0 +1,2 @@
+rootProject.name = 'groovy-modular'
+include 'modlib','grvapp', 'javapp'

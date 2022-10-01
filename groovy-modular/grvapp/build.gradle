@@ -1,0 +1,43 @@
+plugins {
+  id 'java'
+  id 'groovy'
+  id 'application'
+  id 'eclipse'
+}
+
+repositories {
+        mavenCentral() {
+            content {
+                // this repository contains everything BUT artifacts with group starting with "my.company"
+                excludeGroupByRegex "org\\.rwtodd\\..*"
+            }
+        }
+       mavenLocal {
+          content {
+             // this repository *only* contains artifacts with group "my.company"
+             includeGroupByRegex "org\\.rwtodd\\..*"
+         }
+      }
+}
+
+java {
+  compileJava {
+     options.release = 18
+  }
+}
+
+dependencies {
+    // Use JUnit Jupiter API for testing.
+    // testImplementation 'org.junit.jupiter:junit-jupiter-api:5.6.2'
+    implementation 'org.apache.groovy:groovy:4.0.3'
+    implementation project(':modlib')
+}
+
+application {
+    // Define the main class for the application.
+     mainModule.set('rwt.gmodz')
+     mainClass.set('rwt.gmodz.Cmd')
+//    applicationDefaultJvmArgs = ['-Xmx64m']
+//    applicationDefaultJvmArgs = ['-Dglass.win.uiScale=100%']
+}
+
