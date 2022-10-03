@@ -30,7 +30,7 @@ while var ln = readLine() {
        // NUMBERED PAGES ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
        let pdfPage = Int(match.pdf)!
        let bookPage = Int(match.book)!
-       var style : String
+       let style : String
        switch(match.style) {
           case "r": style="LowercaseRomanNumerals"
           case "R": style="UppercaseRomanNumerals"
