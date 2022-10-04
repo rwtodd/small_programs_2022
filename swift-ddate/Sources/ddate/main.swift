@@ -70,7 +70,12 @@ let adjustedDay = dayOfYear - ((isLeapYear && cal.component(.month, from: today)
 let isTibs = isLeapYear && dayOfYear == (31+29)
 let season = adjustedDay / 73
 let seasonDay = adjustedDay % 73 + 1
-let holyDay = (seasonDay == 5) ? holyDays5[season] : ((seasonDay == 50) ? holyDays50[season] : "")
+let holyDay : String 
+switch seasonDay {
+  case 5: holyDay = holyDays5[season]
+  case 50: holyDay = holyDays50[season]
+  default: holyDay = ""
+}
 
 // Loop over 'fmt' and produce the output
 var result = ""; result.reserveCapacity(256) // this is where the output will go
