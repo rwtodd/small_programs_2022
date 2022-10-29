@@ -6,6 +6,7 @@ independent source-control treatment.
 - **adjust\-smartquotes**: tiny perl script to convert unicode quotes to TeX quotes.
 - **bf\-compiler**: a brainf--k compiler in GNU-Prolog with a few optimization passes.
 - **double\-cola**: a programming challenge that's not hard if you know about logarithms
+- **docx\-to\-pages\-pdf: applescript to convert docx to pages, and then from pages to pdf
 - **eng\-qbl**: just playing with gematria in GNU-prolog + DCG grammars.
 - **grab\-flacs**: powershell script to pull the .FLAC addresses from a web page, and then schedule `BITS`-tasks to download them. 
 - **groovy\-modular**: a test program to check out building a JPMS modular JAR in groovy.
