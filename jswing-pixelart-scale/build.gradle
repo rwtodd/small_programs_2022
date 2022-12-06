@@ -22,6 +22,7 @@ application {
     // Define the main class for the application.
     mainModule.set('rwt.pixelart')
     mainClass.set('rwt.pixelart.Cmd')
+    applicationDefaultJvmArgs = ['-Dswing.metalTheme=steel']
 //    applicationDefaultJvmArgs = ['-Xmx64m']
 //    applicationDefaultJvmArgs = ['-Dglass.win.uiScale=100%']
 }

@@ -1,8 +1,6 @@
 package rwt.pixelart;
 
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.awt.image.BufferedImage;
 import java.util.Random;
 import javax.swing.*;
@@ -11,9 +9,6 @@ import javax.swing.*;
 // compare to sibling project jfx-pixelart-scale ... and you'll see how relatively easy
 // it is to get a pixel-perfect scaled image in swing
 
-// here I compare drawing at actual device resolution vs letting swing scale it for
-// me... pressing any key switches between the views
-
 public class Cmd extends JFrame {
 
 	private static final long serialVersionUID = -7835865311308198512L;
@@ -21,38 +16,49 @@ public class Cmd extends JFrame {
 	private JComponent pixart;
 	
 	private final BufferedImage bi;
-	private Random rng = new Random();
+	private final Object[] palette;
+	private int paletteOffs; // offset into the palette
 
-//	private void drawImage() {
-//		int c1 = rng.nextInt() | 0xff_00_00_ff;
-//		int c2 = rng.nextInt() | 0xff_00_00_ff;
-//
-//		// make a checkerboard
-//		for(int y=0;y< bi.getHeight();++y)
-//			for(int x=0;x<bi.getWidth();++x)
-//				bi.setRGB(x, y, (((x+y)&1)==0)? c1 : c2);
-//	}
+	private static Object[] setUpEGAPalette(BufferedImage im) {
 
-	private int c1 = 0xff_00_00_00;
-	private Object col1 =null;
-	private int c2 = 0xff_ff_00_00;
-	private Object col2 = null;
+		//colormodel.getDataElements() takes an ARGB value and converts it to what the raster wants...
+		// ... and raster.setDataElements takes the colormodel output and sets the value in the raster
+		final var cm = im.getColorModel();
+		final var palette = new Object[16];
+		palette[0] = cm.getDataElements(0xff_00_00_00, null); // null means allocate a fresh one
+		palette[1] = cm.getDataElements(0xff_00_00_aa, null);
+		palette[2] = cm.getDataElements(0xff_00_aa_00, null);
+		palette[3] = cm.getDataElements(0xff_00_aa_aa, null);
+		palette[4] = cm.getDataElements(0xff_aa_00_00, null);
+		palette[5] = cm.getDataElements(0xff_aa_00_aa, null);
+		palette[6] = cm.getDataElements(0xff_aa_55_00, null);
+		palette[7] = cm.getDataElements(0xff_aa_aa_aa, null);
+		palette[8] = cm.getDataElements(0xff_55_55_55, null);
+		palette[9] = cm.getDataElements(0xff_55_55_ff, null);
+		palette[10] = cm.getDataElements(0xff_55_ff_55, null);
+		palette[11] = cm.getDataElements(0xff_55_ff_ff, null);
+		palette[12] = cm.getDataElements(0xff_ff_55_55, null);
+		palette[13] = cm.getDataElements(0xff_ff_55_ff, null);
+		palette[14] = cm.getDataElements(0xff_ff_ff_55, null);
+		palette[15] = cm.getDataElements(0xff_ff_ff_ff, null);
+		return palette;
+	}
 
 	private void drawImage() {
-		//getDataElements takes an ARGB value and converts it to what the raster wants...
-		col1 = bi.getColorModel().getDataElements(c1, col1);
-		col2 = bi.getColorModel().getDataElements(c2, col2);
 		final var raster = bi.getRaster();
+		int pidx = paletteOffs;
 
-		for(int y = 0; y < bi.getHeight(); ++y)
-			for(int x = 0; x < bi.getWidth(); ++x)
-				// ... and raster.setDataElements takes the colormodel output and sets the value in the raster
-				raster.setDataElements(x,y, ((x+y)&1) == 0 ? col1 : col2);
+		for(int y = 0; y < bi.getHeight(); ++y) {
+			for (int x = 0; x < bi.getWidth(); ++x) {
+				// raster.setDataElements takes the colormodel output and sets the value in the raster
+				raster.setDataElements(x, y, palette[pidx]);
+				if(++pidx == 16) pidx = 0;
+			}
+			if(++pidx == 16) pidx = 0;
+		}
 
-		c1 += rng.nextInt(8);
-		c2 += rng.nextInt(8);
-		if(c1 >= 0xff_00_01_00) c1 = 0xff_00_00_00;
-		if(c2 >= 0xff_ff_01_00) c2 = 0xff_ff_00_00;
+		// change the base offset for the next run
+		if(++paletteOffs == 16) { paletteOffs = 0; }
 	}
 
 	public Cmd() {
@@ -61,6 +67,7 @@ public class Cmd extends JFrame {
 
 		// we create the ideal image type for our display...
 		bi = GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice().getDefaultConfiguration().createCompatibleImage(160,200);
+		palette = Cmd.setUpEGAPalette(bi);
 	    drawImage();
 
 		pixart = new JComponent() {
@@ -108,11 +115,9 @@ public class Cmd extends JFrame {
 		setContentPane(pixart);
 		pack();
 		setVisible(true);
-		new javax.swing.Timer(1000/60, new ActionListener() {
-			@Override public void actionPerformed(ActionEvent e) {
-				drawImage();
-				repaint();
-			}
+		new javax.swing.Timer(1000/20, e -> {
+			drawImage();
+			repaint();
 		}).start();
 	}
 	
