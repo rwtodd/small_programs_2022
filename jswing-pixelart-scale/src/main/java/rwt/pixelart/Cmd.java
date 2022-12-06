@@ -21,7 +21,7 @@ public class Cmd extends JFrame {
 
 	private static final long serialVersionUID = -7835865311308198512L;
 
-	private JPanel jp;
+	private JComponent jp;
 	
 	private final BufferedImage bi;
 	private Random rng = new Random();
@@ -64,8 +64,8 @@ public class Cmd extends JFrame {
 		bi = GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice().getDefaultConfiguration().createCompatibleImage(160,200);
 	    drawImage();
 
-		jp = new JPanel() {
-			{ setPreferredSize(new Dimension(0160*2*3, 240*3)); }
+		jp = new JComponent() {
+			{ setPreferredSize(new Dimension( 160*2*3, 240*3)); }
 			
 			@Override
 			public void paintComponent(Graphics g) {
